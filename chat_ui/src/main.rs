@@ -34,8 +34,17 @@ mod chat_ui {
     #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct ChatBody {
         pub messages: Vec<Message>,
-        #[serde(rename = "conversationName")]
-        pub conversation_name: String,
+        #[serde(default)]
+        pub channel_id: String,
+    }
+
+    pub enum TokenError {
+        EndOfSequence = 1,
+        ContextFull,
+        PromptTooLong,
+        TooLarge,
+        InvalidEncoding,
+        Other,
     }
 
     mod ffi {
@@ -43,6 +52,7 @@ mod chat_ui {
         extern "C" {
             pub fn get_input(buf: *mut u8, buf_len: usize) -> usize;
             pub fn push_token(token_ptr: *const u8, token_len: usize) -> i32;
+            pub fn return_token_error(error_code: i32);
         }
     }
 
@@ -61,15 +71,12 @@ mod chat_ui {
         }
     }
 
-    pub fn push_token(token: Option<&str>) -> Result<(), ()> {
-        unsafe {
-            if let Some(token) = token {
-                ffi::push_token(token.as_ptr(), token.len());
-            } else {
-                ffi::push_token(std::ptr::null(), 0);
-            }
-            Ok(())
-        }
+    pub fn push_token(token: &str) -> bool {
+        unsafe { ffi::push_token(token.as_ptr(), token.len()) >= 0 }
+    }
+
+    pub fn return_token_error(error: TokenError) {
+        unsafe { ffi::return_token_error(error as i32) }
     }
 }
 
@@ -93,10 +100,6 @@ impl chat_ui::ChatBody {
 
 #[allow(unreachable_code)]
 fn main() -> Result<(), String> {
-    let dirs = std::fs::read_dir("modules").unwrap();
-    for d in dirs {
-        println!("{d:?}");
-    }
     let matches = Command::new("llama-chat")
         .version(crate_version!())
         .arg(
@@ -374,7 +377,10 @@ fn main() -> Result<(), String> {
     }
 
     loop {
-        let mut chat_request = chat_ui::get_input().unwrap().to_message_request();
+        let mut chat_request = match chat_ui::get_input() {
+            Ok(r) => r.to_message_request(),
+            Err(_) => continue,
+        };
 
         if log_stat || log_all {
             print_log_begin_separator("STATISTICS (Set Input)", Some("*"), None);
@@ -422,18 +428,33 @@ fn main() -> Result<(), String> {
         }
 
         match result {
-            Ok(_) => {}
-            Err(wasi_nn::Error::BackendError(BackendError::EndOfSequence)) => {}
-            Err(wasi_nn::Error::BackendError(BackendError::ContextFull)) => {}
+            Ok(_) => {
+                chat_ui::return_token_error(chat_ui::TokenError::EndOfSequence);
+            }
+            Err(wasi_nn::Error::BackendError(BackendError::EndOfSequence)) => {
+                chat_ui::return_token_error(chat_ui::TokenError::EndOfSequence);
+            }
+            Err(wasi_nn::Error::BackendError(BackendError::ContextFull)) => {
+                chat_ui::return_token_error(chat_ui::TokenError::ContextFull);
+            }
+            Err(wasi_nn::Error::BackendError(BackendError::PromptTooLong)) => {
+                chat_ui::return_token_error(chat_ui::TokenError::PromptTooLong);
+            }
+            Err(wasi_nn::Error::BackendError(BackendError::TooLarge)) => {
+                chat_ui::return_token_error(chat_ui::TokenError::TooLarge);
+            }
+            Err(wasi_nn::Error::BackendError(BackendError::InvalidEncoding)) => {
+                chat_ui::return_token_error(chat_ui::TokenError::InvalidEncoding);
+            }
             Err(e) => {
-                return Err(format!(
-                    "Fail to compute. Reason: {msg}",
+                eprintln!(
+                    "[chat_ui.wasm] Fail to compute. Reason: {msg}",
                     msg = e.to_string()
-                ))
+                );
+                chat_ui::return_token_error(chat_ui::TokenError::Other);
             }
         }
         context.fini_single().unwrap();
-        let _ = chat_ui::push_token(None);
     }
 
     Ok(())
@@ -617,7 +638,7 @@ fn stream_compute(
                 break;
             }
         }
-        let _ = chat_ui::push_token(Some(&token));
+        let _ = chat_ui::push_token(&token);
     }
     Ok(())
 }
