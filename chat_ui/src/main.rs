@@ -84,15 +84,22 @@ impl chat_ui::ChatBody {
     fn to_message_request(self) -> ChatCompletionRequest {
         let mut chat_request = ChatCompletionRequest::default();
         for msg in self.messages {
-            let role = match msg.role {
-                chat_ui::Role::System => ChatCompletionRole::System,
-                chat_ui::Role::User => ChatCompletionRole::User,
-                chat_ui::Role::Assistant => ChatCompletionRole::Assistant,
+            let role_fn = match msg.role {
+                chat_ui::Role::System => {
+                    ChatCompletionRequestMessage::new_system_message(msg.content, None)
+                }
+                chat_ui::Role::User => ChatCompletionRequestMessage::new_user_message(
+                    endpoints::chat::ChatCompletionUserMessageContent::Text(msg.content),
+                    None,
+                ),
+                chat_ui::Role::Assistant => ChatCompletionRequestMessage::new_assistant_message(
+                    Some(msg.content),
+                    None,
+                    None,
+                ),
             };
 
-            chat_request
-                .messages
-                .push(ChatCompletionRequestMessage::new(role, msg.content));
+            chat_request.messages.push(role_fn);
         }
         chat_request
     }
@@ -184,21 +191,24 @@ fn main() -> Result<(), String> {
                 .value_parser([
                     "llama-2-chat",
                     "codellama-instruct",
-                    "mistral-instruct-v0.1",
+                    "codellama-super-instruct",
                     "mistral-instruct",
                     "mistrallite",
                     "openchat",
-                    "belle-llama-2-chat",
-                    "vicuna-chat",
+                    "human-assistant",
+                    "vicuna-1.0-chat",
                     "vicuna-1.1-chat",
                     "chatml",
                     "baichuan-2",
                     "wizard-coder",
                     "zephyr",
+                    "stablelm-zephyr",
                     "intel-neural",
                     "deepseek-chat",
                     "deepseek-coder",
                     "solar-instruct",
+                    "phi-2-instruct",
+                    "gemma-instruct",
                 ])
                 .value_name("TEMPLATE")
                 .help("Prompt template.")
@@ -491,132 +501,74 @@ fn print_log_end_separator(ch: Option<&str>, len: Option<usize>) {
 fn create_prompt_template(template_ty: PromptTemplateType) -> ChatPrompt {
     match template_ty {
         PromptTemplateType::Llama2Chat => {
-            ChatPrompt::Llama2ChatPrompt(chat_prompts::chat::llama::Llama2ChatPrompt::default())
+            ChatPrompt::Llama2ChatPrompt(chat_prompts::chat::llama::Llama2ChatPrompt)
         }
-        PromptTemplateType::MistralInstruct => ChatPrompt::MistralInstructPrompt(
-            chat_prompts::chat::mistral::MistralInstructPrompt::default(),
-        ),
+        PromptTemplateType::MistralInstruct => {
+            ChatPrompt::MistralInstructPrompt(chat_prompts::chat::mistral::MistralInstructPrompt)
+        }
         PromptTemplateType::MistralLite => {
-            ChatPrompt::MistralLitePrompt(chat_prompts::chat::mistral::MistralLitePrompt::default())
+            ChatPrompt::MistralLitePrompt(chat_prompts::chat::mistral::MistralLitePrompt)
         }
         PromptTemplateType::OpenChat => {
-            ChatPrompt::OpenChatPrompt(chat_prompts::chat::openchat::OpenChatPrompt::default())
+            ChatPrompt::OpenChatPrompt(chat_prompts::chat::openchat::OpenChatPrompt)
         }
-        PromptTemplateType::CodeLlama => ChatPrompt::CodeLlamaInstructPrompt(
-            chat_prompts::chat::llama::CodeLlamaInstructPrompt::default(),
+        PromptTemplateType::CodeLlama => {
+            ChatPrompt::CodeLlamaInstructPrompt(chat_prompts::chat::llama::CodeLlamaInstructPrompt)
+        }
+        PromptTemplateType::CodeLlamaSuper => ChatPrompt::CodeLlamaSuperInstructPrompt(
+            chat_prompts::chat::llama::CodeLlamaSuperInstructPrompt,
         ),
-        PromptTemplateType::BelleLlama2Chat => ChatPrompt::BelleLlama2ChatPrompt(
-            chat_prompts::chat::belle::BelleLlama2ChatPrompt::default(),
+        PromptTemplateType::HumanAssistant => ChatPrompt::HumanAssistantChatPrompt(
+            chat_prompts::chat::belle::HumanAssistantChatPrompt,
         ),
         PromptTemplateType::VicunaChat => {
-            ChatPrompt::VicunaChatPrompt(chat_prompts::chat::vicuna::VicunaChatPrompt::default())
+            ChatPrompt::VicunaChatPrompt(chat_prompts::chat::vicuna::VicunaChatPrompt)
         }
         PromptTemplateType::Vicuna11Chat => {
-            ChatPrompt::Vicuna11ChatPrompt(chat_prompts::chat::vicuna::Vicuna11ChatPrompt::default())
+            ChatPrompt::Vicuna11ChatPrompt(chat_prompts::chat::vicuna::Vicuna11ChatPrompt)
+        }
+        PromptTemplateType::VicunaLlava => {
+            ChatPrompt::VicunaLlavaPrompt(chat_prompts::chat::vicuna::VicunaLlavaPrompt)
         }
         PromptTemplateType::ChatML => {
-            ChatPrompt::ChatMLPrompt(chat_prompts::chat::chatml::ChatMLPrompt::default())
+            ChatPrompt::ChatMLPrompt(chat_prompts::chat::chatml::ChatMLPrompt)
         }
-        PromptTemplateType::Baichuan2 => ChatPrompt::Baichuan2ChatPrompt(
-            chat_prompts::chat::baichuan::Baichuan2ChatPrompt::default(),
-        ),
+        PromptTemplateType::Baichuan2 => {
+            ChatPrompt::Baichuan2ChatPrompt(chat_prompts::chat::baichuan::Baichuan2ChatPrompt)
+        }
         PromptTemplateType::WizardCoder => {
-            ChatPrompt::WizardCoderPrompt(chat_prompts::chat::wizard::WizardCoderPrompt::default())
+            ChatPrompt::WizardCoderPrompt(chat_prompts::chat::wizard::WizardCoderPrompt)
         }
         PromptTemplateType::Zephyr => {
-            ChatPrompt::ZephyrChatPrompt(chat_prompts::chat::zephyr::ZephyrChatPrompt::default())
+            ChatPrompt::ZephyrChatPrompt(chat_prompts::chat::zephyr::ZephyrChatPrompt)
         }
+        PromptTemplateType::StableLMZephyr => ChatPrompt::StableLMZephyrChatPrompt(
+            chat_prompts::chat::zephyr::StableLMZephyrChatPrompt,
+        ),
         PromptTemplateType::IntelNeural => {
-            ChatPrompt::NeuralChatPrompt(chat_prompts::chat::intel::NeuralChatPrompt::default())
+            ChatPrompt::NeuralChatPrompt(chat_prompts::chat::intel::NeuralChatPrompt)
         }
-        PromptTemplateType::DeepseekChat => ChatPrompt::DeepseekChatPrompt(
-            chat_prompts::chat::deepseek::DeepseekChatPrompt::default(),
-        ),
-        PromptTemplateType::DeepseekCoder => ChatPrompt::DeepseekCoderPrompt(
-            chat_prompts::chat::deepseek::DeepseekCoderPrompt::default(),
-        ),
-        PromptTemplateType::SolarInstruct => ChatPrompt::SolarInstructPrompt(
-            chat_prompts::chat::solar::SolarInstructPrompt::default(),
-        ),
-    }
-}
-
-fn _post_process(output: impl AsRef<str>, template_ty: PromptTemplateType) -> String {
-    println!("[DEBUG] Post-processing ...");
-
-    if template_ty == PromptTemplateType::Baichuan2 {
-        if output.as_ref().contains("用户:") {
-            output.as_ref().trim_end_matches("用户:").trim().to_owned()
-        } else {
-            output.as_ref().trim().to_owned()
+        PromptTemplateType::DeepseekChat => {
+            ChatPrompt::DeepseekChatPrompt(chat_prompts::chat::deepseek::DeepseekChatPrompt)
         }
-    } else if template_ty == PromptTemplateType::OpenChat {
-        if output.as_ref().contains("<|end_of_turn|>") {
-            output
-                .as_ref()
-                .trim_end_matches("<|end_of_turn|>")
-                .trim()
-                .to_owned()
-        } else {
-            output.as_ref().trim().to_owned()
+        PromptTemplateType::DeepseekCoder => {
+            ChatPrompt::DeepseekCoderPrompt(chat_prompts::chat::deepseek::DeepseekCoderPrompt)
         }
-    } else if template_ty == PromptTemplateType::ChatML {
-        if output.as_ref().contains("<|im_start|>") && output.as_ref().contains("<|im_end|>") {
-            let idx_start = output.as_ref().find("<|im_start|>").unwrap();
-            let idx_end = output.as_ref().find("<|im_end|>").unwrap();
-
-            match idx_start <= idx_end {
-                true => output.as_ref().split("<|im_start|>").collect::<Vec<_>>()[0]
-                    .trim()
-                    .to_owned(),
-                false => output.as_ref().split("<|im_end|>").collect::<Vec<_>>()[0]
-                    .trim()
-                    .to_owned(),
-            }
-        } else if output.as_ref().contains("<|im_start|>") {
-            output.as_ref().split("<|im_start|>").collect::<Vec<_>>()[0]
-                .trim()
-                .to_owned()
-        } else if output.as_ref().contains("<|im_end|>") {
-            output.as_ref().split("<|im_end|>").collect::<Vec<_>>()[0]
-                .trim()
-                .to_owned()
-        } else {
-            output.as_ref().trim().to_owned()
+        PromptTemplateType::SolarInstruct => {
+            ChatPrompt::SolarInstructPrompt(chat_prompts::chat::solar::SolarInstructPrompt)
         }
-    } else if template_ty == PromptTemplateType::Zephyr
-        || template_ty == PromptTemplateType::MistralLite
-    {
-        if output.as_ref().contains("</s><") {
-            output.as_ref().trim_end_matches("</s><").trim().to_owned()
-        } else if output.as_ref().contains("</s>") {
-            output
-                .as_ref()
-                .strip_suffix("</s>")
-                .unwrap()
-                .trim()
-                .to_owned()
-        } else {
-            output.as_ref().trim().to_owned()
+        PromptTemplateType::Phi2Chat => {
+            ChatPrompt::Phi2ChatPrompt(chat_prompts::chat::phi::Phi2ChatPrompt)
         }
-    } else if template_ty == PromptTemplateType::DeepseekChat {
-        if output.as_ref().contains("<|end_of_sentence|>") {
-            output
-                .as_ref()
-                .trim_end_matches("<|end_of_sentence|>")
-                .trim()
-                .to_owned()
-        } else {
-            output.as_ref().trim().to_owned()
+        PromptTemplateType::Phi2Instruct => {
+            ChatPrompt::Phi2InstructPrompt(chat_prompts::chat::phi::Phi2InstructPrompt)
         }
-    } else if template_ty == PromptTemplateType::BelleLlama2Chat {
-        if output.as_ref().contains("Human:") {
-            output.as_ref().trim_end_matches("Human:").trim().to_owned()
-        } else {
-            output.as_ref().trim().to_owned()
+        PromptTemplateType::GemmaInstruct => {
+            ChatPrompt::GemmaInstructPrompt(chat_prompts::chat::gemma::GemmaInstructPrompt)
         }
-    } else {
-        output.as_ref().trim().to_owned()
+        PromptTemplateType::Octopus => {
+            ChatPrompt::OctopusPrompt(chat_prompts::chat::octopus::OctopusPrompt)
+        }
     }
 }
 
@@ -638,7 +590,9 @@ fn stream_compute(
                 break;
             }
         }
-        let _ = chat_ui::push_token(&token);
+        if !chat_ui::push_token(&token) {
+            return Ok(());
+        }
     }
     Ok(())
 }
@@ -700,17 +654,17 @@ fn build_prompt(
 
         match prompt_tokens > max_prompt_tokens {
             true => {
-                match chat_request.messages[0].role {
+                match chat_request.messages[0].role() {
                     ChatCompletionRole::System => {
                         if chat_request.messages.len() >= 4 {
-                            if chat_request.messages[1].role == ChatCompletionRole::User {
+                            if chat_request.messages[1].role() == ChatCompletionRole::User {
                                 chat_request.messages.remove(1);
                             }
-                            if chat_request.messages[1].role == ChatCompletionRole::Assistant {
+                            if chat_request.messages[1].role() == ChatCompletionRole::Assistant {
                                 chat_request.messages.remove(1);
                             }
                         } else if chat_request.messages.len() == 3
-                            && chat_request.messages[1].role == ChatCompletionRole::User
+                            && chat_request.messages[1].role() == ChatCompletionRole::User
                         {
                             chat_request.messages.remove(1);
                         } else {
@@ -719,14 +673,14 @@ fn build_prompt(
                     }
                     ChatCompletionRole::User => {
                         if chat_request.messages.len() >= 3 {
-                            if chat_request.messages[0].role == ChatCompletionRole::User {
+                            if chat_request.messages[0].role() == ChatCompletionRole::User {
                                 chat_request.messages.remove(0);
                             }
-                            if chat_request.messages[0].role == ChatCompletionRole::Assistant {
+                            if chat_request.messages[0].role() == ChatCompletionRole::Assistant {
                                 chat_request.messages.remove(0);
                             }
                         } else if chat_request.messages.len() == 2
-                            && chat_request.messages[0].role == ChatCompletionRole::User
+                            && chat_request.messages[0].role() == ChatCompletionRole::User
                         {
                             chat_request.messages.remove(0);
                         } else {
