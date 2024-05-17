@@ -13,6 +13,7 @@ use hyper::{
 };
 use llama_core::MetadataBuilder;
 use std::{net::SocketAddr, path::PathBuf};
+use tokio::net::TcpListener;
 use utils::log;
 
 type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
@@ -177,7 +178,10 @@ async fn main() -> Result<(), ServerError> {
         .socket_addr
         .parse::<SocketAddr>()
         .map_err(|e| ServerError::SocketAddr(e.to_string()))?;
-    let server = Server::bind(&addr).serve(new_service);
+    let tcp_listener = TcpListener::bind(addr).await.unwrap();
+    let server = Server::from_tcp(tcp_listener.into_std().unwrap())
+        .unwrap()
+        .serve(new_service);
 
     log(format!(
         "[INFO] LlamaEdge API server listening on http://{}:{}",
