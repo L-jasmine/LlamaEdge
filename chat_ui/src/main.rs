@@ -589,14 +589,28 @@ fn stream_compute(
     stop: Option<&str>,
 ) -> Result<(), wasi_nn::Error> {
     // Compute one token at a time, and get the token using the get_output_single().
+    // Retrieve the output.
+    let max_output_size = *MAX_BUFFER_SIZE.get().unwrap();
+    let mut output_buffer = vec![0u8; max_output_size];
+    let mut start_offset = 0;
+
     loop {
         context.compute_single()?;
-        // Retrieve the output.
-        let max_output_size = *MAX_BUFFER_SIZE.get().unwrap();
-        let mut output_buffer = vec![0u8; max_output_size];
-        let mut output_size = context.get_output_single(0, &mut output_buffer).unwrap();
-        output_size = std::cmp::min(max_output_size, output_size);
-        let token = String::from_utf8_lossy(&output_buffer[..output_size]).to_string();
+
+        let mut output_size = context
+            .get_output_single(0, &mut output_buffer[start_offset..])
+            .unwrap();
+        output_size = start_offset + std::cmp::min(max_output_size, output_size);
+
+        if std::str::from_utf8(&output_buffer[..output_size]).is_err() {
+            start_offset = output_size;
+            continue;
+        }
+
+        start_offset = 0;
+
+        let token = String::from_utf8(output_buffer[..output_size].to_vec()).unwrap();
+
         if let Some(stop) = stop {
             if token == stop {
                 break;
