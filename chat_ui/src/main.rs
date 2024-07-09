@@ -8,6 +8,9 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::str::FromStr;
+
+use wasmedge_wasi_nn as wasi_nn;
+
 use wasi_nn::BackendError;
 
 static MAX_BUFFER_SIZE: OnceCell<usize> = OnceCell::new();
@@ -580,6 +583,9 @@ fn create_prompt_template(template_ty: PromptTemplateType) -> ChatPrompt {
         }
         PromptTemplateType::Octopus => {
             ChatPrompt::OctopusPrompt(chat_prompts::chat::octopus::OctopusPrompt)
+        }
+        _ => {
+            panic!("Unsupported prompt template type: {:?}", template_ty)
         }
     }
 }
