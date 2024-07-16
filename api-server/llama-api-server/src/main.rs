@@ -439,7 +439,13 @@ async fn main() -> Result<(), ServerError> {
         // web ui
         let web_ui = cli.web_ui.to_string_lossy().to_string();
 
-        async move { Ok::<_, Error>(service_fn(move |req| handle_request(req, web_ui.clone()))) }
+        let peer_addr = conn.remote_addr();
+
+        async move {
+            Ok::<_, Error>(service_fn(move |req| {
+                handle_request(req, web_ui.clone(), peer_addr)
+            }))
+        }
     });
 
     let server = Server::bind(&addr).serve(new_service);
@@ -459,6 +465,7 @@ async fn main() -> Result<(), ServerError> {
 async fn handle_request(
     req: Request<Body>,
     web_ui: String,
+    peer_addr: SocketAddr,
 ) -> Result<Response<Body>, hyper::Error> {
     let path_str = req.uri().path();
     let path_buf = PathBuf::from(path_str);
@@ -485,6 +492,14 @@ async fn handle_request(
     }
 
     let response = match root_path.as_str() {
+        "/admin" if peer_addr.ip().is_loopback() => {
+            if req.uri().path() == "/admin/exit" {
+                llama_core::unload_core_context().unwrap();
+                std::process::exit(0);
+            } else {
+                Response::new(Body::empty())
+            }
+        }
         "/echo" => Response::new(Body::from("echo test")),
         "/v1" => backend::handle_llama_request(req).await,
         _ => static_response(path_str, web_ui),
