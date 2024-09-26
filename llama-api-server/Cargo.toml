@@ -19,7 +19,8 @@ mime_guess = "2.0.4"
 futures-util = "0.3"
 anyhow.workspace = true
 multipart-2021 = "0.19.0"
-wasi-logger.workspace = true
+# wasi-logger.workspace = true
+env_logger = { version = "0.11" }
 log.workspace = true
 either.workspace = true
 walkdir = "2.5.0"

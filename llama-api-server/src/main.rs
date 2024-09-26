@@ -145,9 +145,13 @@ async fn main() -> Result<(), ServerError> {
         plugin_debug = true;
     }
 
+    env_logger::Builder::from_default_env()
+        .filter_level(log_level.into())
+        .init();
+
     // set global logger
-    wasi_logger::Logger::install().expect("failed to install wasi_logger::Logger");
-    log::set_max_level(log_level.into());
+    // wasi_logger::Logger::install().expect("failed to install wasi_logger::Logger");
+    // log::set_max_level(log_level.into());
 
     // parse the command line arguments
     let cli = Cli::parse();
