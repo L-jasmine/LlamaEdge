@@ -33,11 +33,9 @@ either.workspace = true
 wasmedge_stable_diffusion = { version = "=0.3.0" }
 base64.workspace = true
 
-[package.metadata.cargo-machete]
-ignored = ["wasi-logger"]
 
 [features]
 default = []
 full = ["logging", "search"]
-logging = ["wasi-logger", "log"]
+logging = ["log"]
 search = []
