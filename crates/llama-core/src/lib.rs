@@ -225,6 +225,35 @@ pub fn init_ggml_rag_context(
     Ok(())
 }
 
+/// Unload the core context
+pub fn unload_core_context() -> Result<(), LlamaCoreError> {
+    #[cfg(feature = "logging")]
+    info!(target: "llama-core", "Unloading the core context");
+
+    CHAT_GRAPHS.get().map(|chat_graphs| {
+        chat_graphs.lock().map(|mut chat_graphs| {
+            for (_, g) in chat_graphs.iter_mut() {
+                let _ = g._graph.unload();
+            }
+            chat_graphs.clear();
+        })
+    });
+
+    EMBEDDING_GRAPHS.get().map(|embedding_graphs| {
+        embedding_graphs.lock().map(|mut embedding_graphs| {
+            for (_, g) in embedding_graphs.iter_mut() {
+                let _ = g._graph.unload();
+            }
+            embedding_graphs.clear();
+        })
+    });
+
+    #[cfg(feature = "logging")]
+    info!(target: "llama-core", "The core context has been unloaded");
+
+    Ok(())
+}
+
 /// Get the plugin info
 ///
 /// Note that it is required to call `init_core_context` before calling this function.
