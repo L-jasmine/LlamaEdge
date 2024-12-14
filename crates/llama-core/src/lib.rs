@@ -233,7 +233,7 @@ pub fn unload_core_context() -> Result<(), LlamaCoreError> {
     CHAT_GRAPHS.get().map(|chat_graphs| {
         chat_graphs.lock().map(|mut chat_graphs| {
             for (_, g) in chat_graphs.iter_mut() {
-                let _ = g._graph.unload();
+                let _ = g.unload();
             }
             chat_graphs.clear();
         })
@@ -242,7 +242,7 @@ pub fn unload_core_context() -> Result<(), LlamaCoreError> {
     EMBEDDING_GRAPHS.get().map(|embedding_graphs| {
         embedding_graphs.lock().map(|mut embedding_graphs| {
             for (_, g) in embedding_graphs.iter_mut() {
-                let _ = g._graph.unload();
+                let _ = g.unload();
             }
             embedding_graphs.clear();
         })
