@@ -279,7 +279,7 @@ impl<M: BaseMetadata + serde::Serialize + Clone + Default> Graph<M> {
 
     /// Unload the model
     pub fn unload(&self) -> Result<(), WasiNnError> {
-        self._graph.unload()
+        self.graph.unload()
     }
 
     /// Get the name of the model
