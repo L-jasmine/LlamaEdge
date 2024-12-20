@@ -977,7 +977,7 @@ async fn handle_request(
     }
 
     let response = match root_path.as_str() {
-        "/admin" if peer_addr.ip().is_loopback() => {
+        "/admin" => {
             if req.uri().path() == "/admin/exit" {
                 llama_core::unload_core_context().unwrap();
                 std::process::exit(0);
