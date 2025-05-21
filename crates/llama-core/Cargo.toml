@@ -33,8 +33,6 @@ walkdir                    = "2.5.0"
 bitflags                   = "2.0"
 tokio.workspace            = true
 
-[package.metadata.cargo-machete]
-ignored = ["wasi-logger"]
 
 [features]
 default = []
