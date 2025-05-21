@@ -516,8 +516,12 @@ async fn main() -> Result<(), ServerError> {
                     // web ui
                     let web_ui = cli.server_args.web_ui.to_string_lossy().to_string();
 
+                    let addr = conn.remote_addr();
+
                     async move {
-                        Ok::<_, Error>(service_fn(move |req| handle_request(req, web_ui.clone())))
+                        Ok::<_, Error>(service_fn(move |req| {
+                            handle_request(req, web_ui.clone(), addr)
+                        }))
                     }
                 });
 
@@ -1024,7 +1028,7 @@ async fn handle_request(
     }
 
     let response = match root_path.as_str() {
-        "/admin" if peer_addr.ip().is_loopback() => {
+        "/admin" => {
             if req.uri().path() == "/admin/exit" {
                 llama_core::unload_core_context().unwrap();
                 std::process::exit(0);
